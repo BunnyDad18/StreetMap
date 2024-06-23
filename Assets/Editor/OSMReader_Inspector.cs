@@ -51,6 +51,10 @@ public class OSMReader_Inspector : Editor
 
         inspector.Add(PopulateButton);
 
+        Button ChecksButton = new Button() { text = "Checks" };
+        ChecksButton.clicked += reader.Checks;
+        inspector.Add(ChecksButton);
+
         return inspector;
     }
 
