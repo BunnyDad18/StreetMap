@@ -16,6 +16,8 @@ public class Way
 
 public class OSMReader : MonoBehaviour
 {
+    public int lineCount;
+    public Material lineMaterial;
     public Transform mapParent;
     public string dataPath;
     public int nodeCount;
@@ -55,26 +57,27 @@ public class OSMReader : MonoBehaviour
 
     public void PopulateWays()
     {
-        Way way = ways[0];
-        Debug.Log(way.nodeIndexes.Count);
-        GameObject newWayObject = new GameObject();
-        newWayObject.transform.SetParent(mapParent);
-
-        LineRenderer lineRenderer = newWayObject.AddComponent<LineRenderer>();
-        List<Vector3> positions = new List<Vector3>();
-        foreach(long childElement in way.nodeIndexes)
+        Import();
+        for(int i = 0; i < lineCount; i++)
         {
-            Node node = nodes[childElement];
-            Vector3 newPosition = new Vector3(node.lat, 0, node.lon);
-            Debug.Log(newPosition.x);
-            newPosition -= new Vector3(51.508f, 0, 0.070f);
-            newPosition *= 10000;
-            positions.Add(newPosition);
+            Way way = ways[i];
+            Debug.Log(way.nodeIndexes.Count);
+            GameObject newWayObject = new GameObject($"Way {i}");
+            newWayObject.transform.SetParent(mapParent);
+
+            LineRenderer lineRenderer = newWayObject.AddComponent<LineRenderer>();
+            lineRenderer.material = lineMaterial;
+            List<Vector3> positions = new List<Vector3>();
+            foreach (long childElement in way.nodeIndexes)
+            {
+                Node node = nodes[childElement];
+                Vector3 newPosition = new Vector3(node.lat, 0, node.lon);
+                newPosition -= new Vector3(51.508f, 0, 0.070f);
+                newPosition *= 10000;
+                positions.Add(newPosition);
+            }
+            lineRenderer.positionCount = positions.Count;
+            lineRenderer.SetPositions(positions.ToArray());
         }
-        Debug.Log(positions.Count);
-        lineRenderer.positionCount = positions.Count;
-        lineRenderer.SetPositions(positions.ToArray());
-        //lineRenderer.SetPositions(new Vector3[] {new Vector3(0, 0, 0), new Vector3(1, 0, 0), new Vector3(1, 0, 1), new Vector3(0, 0, 1)});
-        Debug.Log(lineRenderer.positionCount);
     }
 }

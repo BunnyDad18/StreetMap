@@ -147,6 +147,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66458c5a216222f4aba2690163ff053f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  lineCount: 1000
+  lineMaterial: {fileID: 10306, guid: 0000000000000000f000000000000000, type: 0}
   mapParent: {fileID: 1763853557}
   dataPath: C:/Repos/StreetMap/Assets/map.osm
   nodeCount: 51881

@@ -13,9 +13,17 @@ public class OSMReader_Inspector : Editor
 
         VisualElement inspector = new VisualElement();
 
+        PropertyField lineCount = new PropertyField();
+        lineCount.bindingPath = "lineCount";
+        inspector.Add(lineCount);
+
         PropertyField parent = new PropertyField();
         parent.bindingPath = "mapParent";
         inspector.Add(parent);
+
+        PropertyField lineMaterial = new PropertyField();
+        lineMaterial.bindingPath = "lineMaterial";
+        inspector.Add(lineMaterial);
 
         PropertyField dataPath = new PropertyField();
         dataPath.bindingPath = "dataPath";
