@@ -66,12 +66,15 @@ public class OSMReader : MonoBehaviour
         {
             Node node = nodes[childElement];
             Vector3 newPosition = new Vector3(node.lat, 0, node.lon);
+            Debug.Log(newPosition.x);
             newPosition -= new Vector3(51.508f, 0, 0.070f);
             newPosition *= 10000;
             positions.Add(newPosition);
         }
         Debug.Log(positions.Count);
+        lineRenderer.positionCount = positions.Count;
         lineRenderer.SetPositions(positions.ToArray());
+        //lineRenderer.SetPositions(new Vector3[] {new Vector3(0, 0, 0), new Vector3(1, 0, 0), new Vector3(1, 0, 1), new Vector3(0, 0, 1)});
         Debug.Log(lineRenderer.positionCount);
     }
 }
