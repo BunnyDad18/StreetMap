@@ -12,6 +12,7 @@ public enum WayType
     Water,
     Grass,
     Building,
+    Taxiway
 }
 
 public class Node
@@ -102,6 +103,7 @@ public class OSMReader : MonoBehaviour
         else if (key == "water") return WayType.Water;
         else if (value == "grass") return WayType.Grass;
         else if (key == "building") return WayType.Building;
+        else if (key == "aeroway" && value == "taxiway") return WayType.Taxiway;
         return WayType.Other;
     }
 
@@ -136,7 +138,7 @@ public class OSMReader : MonoBehaviour
             int index = i + offset;
             if (index >= ways.Count) return;
             Way way = ways[index];
-            if (usedWays.Contains(way.id) || way.tags.Count == 0 || CheckSkipTags(way.tags))
+            if (usedWays.Contains(way.id) || way.tags.Count == 0 || CheckSkipTags(way.tags)/* || way.id != 324023519*/)
             {
                 offset++;
                 i--;
@@ -151,7 +153,8 @@ public class OSMReader : MonoBehaviour
                 GameObject newWayObject = SetupWayGameObject(way, i, index);
                 List<Vector3> positions = new List<Vector3>();
                 AddPositions(ref positions, way);
-                SetupMesh(newWayObject, positions, wayColor);
+                SetupMesh(newWayObject, positions, wayColor, way.type, .1f);
+                SetupLineRenderer(newWayObject, positions, wayColor);
                 continue;
             }
             if (way.type == WayType.Building)
@@ -159,10 +162,10 @@ public class OSMReader : MonoBehaviour
                 GameObject newWayObject = SetupWayGameObject(way, i, index);
                 List<Vector3> positions = new List<Vector3>();
                 AddPositions(ref positions, way);
-                SetupMesh(newWayObject, positions, wayColor, 5);
+                SetupMesh(newWayObject, positions, wayColor, way.type, 5);
                 continue;
             }
-            if (way.type == WayType.Other)
+            if (way.type is WayType.Other or WayType.Taxiway)
             {
                 GameObject newWayObject = SetupWayGameObject(way, i, index);
                 List<Vector3> positions = new List<Vector3>();
@@ -171,6 +174,7 @@ public class OSMReader : MonoBehaviour
                 continue;
             }
         }
+        mapParent.name = $"Main - {mapParent.childCount}";
     }
 
     public Color GetColor(Way way)
@@ -178,6 +182,7 @@ public class OSMReader : MonoBehaviour
         if (way.type == WayType.Water) return Color.blue;
         if (way.type == WayType.Grass) return Color.green;
         if (way.type == WayType.Building) return Color.gray;
+        if (way.type == WayType.Taxiway) return Color.yellow;
         return Color.white;
     }
 
@@ -196,10 +201,10 @@ public class OSMReader : MonoBehaviour
         return newWayObject;
     }
 
-    private void SetupMesh(GameObject gameObject, List<Vector3> positions, Color color, float height = 0)
+    private void SetupMesh(GameObject gameObject, List<Vector3> positions, Color color, WayType type, float height = 0)
     {
         MeshFilter meshFilter = gameObject.AddComponent<MeshFilter>();
-        meshFilter.sharedMesh = OSMMeshBuilder.Get(positions, height);
+        meshFilter.sharedMesh = OSMMeshBuilder.Get(positions, height, type);
 
         MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>();
         renderer.sharedMaterial = Instantiate(meshMaterial);
@@ -232,16 +237,6 @@ public class OSMReader : MonoBehaviour
             newPosition *= 10000;
             positions.Add(newPosition);
         }
-        //Node lastNode = nodes[way.nodeIndexes[way.nodeIndexes.Count - 1]];
-        //if (lastNode.ways.Count > 0)
-        //{
-        //    foreach(Way wayId in lastNode.ways)
-        //    {
-        //        if (usedWays.Contains(wayId.id)) continue;
-        //        //AddPositions(ref positions, ref usedWays, wayId);
-        //        //break;
-        //    }
-        //}
     }
 
     public void Checks()
@@ -268,16 +263,35 @@ public class OSMReader : MonoBehaviour
 
 public class OSMMeshBuilder
 {
-    public static Mesh Get(List<Vector3> positions, float height)
+    private const float tolorance = 2f;
+    public static Mesh Get(List<Vector3> positions, float height, WayType type)
     {
-        //Polygon2D polygon = Polygon2D.Contour(ConvertToVector2Array(positions));
-
-        //Triangulation2D triangulation = new Triangulation2D(polygon, 22.5f);
-
-        //Mesh newMesh = triangulation.Build();
-
         ProBuilderMesh mesh = ProBuilderMesh.Create();
-        mesh.CreateShapeFromPolygon(positions, height, false);
+        var result = mesh.CreateShapeFromPolygon(positions, height, false);
+
+        if(result.status == ActionResult.Status.Failure)
+        {
+            float lowestValue = 10;
+            for (int i = 0; i < positions.Count; i++)
+            {
+                if (i == 0) continue;
+                float distance = Vector3.Distance(positions[i], positions[i - 1]);
+                if (distance < tolorance)
+                {
+                    positions.RemoveAt(i);
+                    i--;
+                }
+                else
+                {
+                    lowestValue = distance < lowestValue ? distance : lowestValue;
+                }
+            }
+        }
+        result = mesh.CreateShapeFromPolygon(positions, height, false);
+        if(result.status == ActionResult.Status.Failure)
+        {
+            Debug.Log($"Mesh Failed to build for type {type}");
+        }
 
         mesh.ToMesh();
         mesh.Refresh();
@@ -293,15 +307,5 @@ public class OSMMeshBuilder
         GameObject.DestroyImmediate(mesh.gameObject);
 
         return wayMesh;
-    }
-
-    private static Vector2[] ConvertToVector2Array(List<Vector3> vector3s)
-    {
-        List<Vector2> result = new List<Vector2>();
-        foreach (Vector3 vector3 in vector3s)
-        {
-            result.Add(new Vector2(vector3.x, vector3.z));
-        }
-        return result.ToArray();
     }
 }
