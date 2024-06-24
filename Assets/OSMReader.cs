@@ -107,16 +107,9 @@ public class OSMReader : MonoBehaviour
                 i--;
                 continue;
             }
-            if (way.tags.ContainsKey("building"))
-            {
-                AddToMesh(way);
-                offset++;
-                i--;
-                continue;
-            }
 
             Color wayColor = GetColor(way);
-            GameObject newWayObject = new GameObject($"Way {i} - {/*way.tags["aeroway"]*/0}");
+            GameObject newWayObject = new GameObject($"Way {i} - {0}");
             newWayObject.transform.SetParent(mapParent);
 
             WayData wayData = newWayObject.AddComponent<WayData>();
@@ -135,15 +128,19 @@ public class OSMReader : MonoBehaviour
                 SetupMesh(newWayObject, positions, wayColor);
                 continue;
             }
+            if (way.tags.ContainsKey("building"))
+            {
+                SetupMesh(newWayObject, positions, wayColor, 5);
+            }
         }
     }
 
-    private void SetupMesh(GameObject gameObject, List<Vector3> positions, Color color)
+    private void SetupMesh(GameObject gameObject, List<Vector3> positions, Color color, float height = 0)
     {
-        if (color == Color.white) return;
+        //if (color == Color.white) return;
         
         MeshFilter meshFilter = gameObject.AddComponent<MeshFilter>();
-        meshFilter.sharedMesh = OSMMeshBuilder.Get(positions);
+        meshFilter.sharedMesh = OSMMeshBuilder.Get(positions, height);
 
         MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>();
         renderer.sharedMaterial = Instantiate(meshMaterial);
@@ -163,14 +160,6 @@ public class OSMReader : MonoBehaviour
 
         lineRenderer.startWidth = .1f;
         lineRenderer.endWidth = .1f;
-    }
-
-    public void AddToMesh(Way way)
-    {
-        for(int i = 0; i < way.nodeIndexes.Count; i++)
-        {
-
-        }
     }
 
     public Color GetColor(Way way)
@@ -232,7 +221,7 @@ public class OSMReader : MonoBehaviour
 
 public class OSMMeshBuilder
 {
-    public static Mesh Get(List<Vector3> positions)
+    public static Mesh Get(List<Vector3> positions, float height)
     {
         //Polygon2D polygon = Polygon2D.Contour(ConvertToVector2Array(positions));
 
@@ -241,7 +230,7 @@ public class OSMMeshBuilder
         //Mesh newMesh = triangulation.Build();
 
         ProBuilderMesh mesh = ProBuilderMesh.Create();
-        mesh.CreateShapeFromPolygon(positions, 0, false);
+        mesh.CreateShapeFromPolygon(positions, height, false);
 
         mesh.ToMesh();
         mesh.Refresh();
