@@ -13,6 +13,11 @@ public class OSMReader_Inspector : Editor
 
         VisualElement inspector = new VisualElement();
 
+        Button ClearButton = new Button() { text = "Clear" };
+        ClearButton.clicked += reader.DestroyChildern;
+
+        inspector.Add(ClearButton);
+
         PropertyField lineCount = new PropertyField();
         lineCount.bindingPath = "lineCount";
         inspector.Add(lineCount);
@@ -25,13 +30,21 @@ public class OSMReader_Inspector : Editor
         lineMaterial.bindingPath = "lineMaterial";
         inspector.Add(lineMaterial);
 
-        PropertyField dataPath = new PropertyField();
-        dataPath.bindingPath = "dataPath";
-        inspector.Add(dataPath);
+        PropertyField meshMaterial = new PropertyField();
+        meshMaterial.bindingPath = "meshMaterial";
+        inspector.Add(meshMaterial);
 
-        Button pathButton = new Button() { text = "Select File" };
-        pathButton.clicked += () => SelectFile(reader);
-        inspector.Add(pathButton);
+        PropertyField osmData = new PropertyField();
+        osmData.bindingPath = "osmData";
+        inspector.Add(osmData);
+
+        //PropertyField dataPath = new PropertyField();
+        //dataPath.bindingPath = "dataPath";
+        //inspector.Add(dataPath);
+
+        //Button pathButton = new Button() { text = "Select File" };
+        //pathButton.clicked += () => SelectFile(reader);
+        //inspector.Add(pathButton);
 
         Button ImportButton = new Button() { text = "Import" };
         ImportButton.clicked += reader.Import;
