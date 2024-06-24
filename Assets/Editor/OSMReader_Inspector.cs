@@ -68,6 +68,10 @@ public class OSMReader_Inspector : Editor
         ChecksButton.clicked += reader.Checks;
         inspector.Add(ChecksButton);
 
+        PropertyField skipKeys = new PropertyField();
+        skipKeys.bindingPath = "skipKeys";
+        inspector.Add(skipKeys);
+
         return inspector;
     }
 

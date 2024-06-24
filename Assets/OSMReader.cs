@@ -6,6 +6,14 @@ using UnityEngine;
 using UnityEngine.ProBuilder;
 using UnityEngine.ProBuilder.MeshOperations;
 
+public enum WayType
+{
+    Other,
+    Water,
+    Grass,
+    Building,
+}
+
 public class Node
 {
     public long id;
@@ -20,6 +28,7 @@ public class Way
     public List<long> nodeIndexes = new List<long>();
     public Dictionary<string, string> tags = new Dictionary<string, string>();
     public long nextWay;
+    public WayType type = WayType.Other;
 }
 
 public class OSMReader : MonoBehaviour
@@ -32,6 +41,8 @@ public class OSMReader : MonoBehaviour
     public string dataPath;
     public int nodeCount;
     public int wayCount;
+
+    public List<string> skipKeys = new List<string>();
 
     public Dictionary<long, Node> nodes = new Dictionary<long, Node>();
     public List<Way> ways = new List<Way>();
@@ -69,7 +80,10 @@ public class OSMReader : MonoBehaviour
             newWay.id = long.Parse(xAttribute.Value);
             foreach(XElement tag in element.Descendants("tag"))
             {
-                newWay.tags.Add(tag.Attribute("k").Value.ToLower(), tag.Attribute("v").Value.ToLower());
+                string key = tag.Attribute("k").Value.ToLower();
+                string value = tag.Attribute("v").Value.ToLower();
+                newWay.tags.Add(key, value);
+                if(newWay.type == WayType.Other) newWay.type = GetType(key, value);
             }
             foreach (XElement nodes in element.Descendants("nd"))
             {
@@ -82,6 +96,15 @@ public class OSMReader : MonoBehaviour
         }
     }
 
+    private WayType GetType(string key, string value)
+    {
+        if (key == "natural" && value == "water") return WayType.Water;
+        else if (key == "water") return WayType.Water;
+        else if (value == "grass") return WayType.Grass;
+        else if (key == "building") return WayType.Building;
+        return WayType.Other;
+    }
+
     public void DestroyChildern()
     {
         for(int i = mapParent.childCount - 1; i >= 0; i--)
@@ -90,55 +113,91 @@ public class OSMReader : MonoBehaviour
         }
     }
 
+    private bool CheckSkipTags(Dictionary<string, string> tags)
+    {
+        foreach(KeyValuePair<string, string> tag in tags)
+        {
+            if(skipKeys.Contains(tag.Key)) return true;
+        }
+        return false;
+    }
+
+    
+
     public void PopulateWays()
     {
         DestroyChildern();
         List<long> usedWays = new List<long>();
         int offset = 0;
-        Import();
+        if (ways.Count == 0) Import();
+
         for(int i = 0; i < lineCount; i++)
         {
             int index = i + offset;
             if (index >= ways.Count) return;
             Way way = ways[index];
-            if (usedWays.Contains(way.id) || way.tags.Count == 0 || way.tags.ContainsKey("power") || way.tags.ContainsKey("route") || way.tags.ContainsKey("seamark:type")/* || !way.tags.ContainsKey("aeroway")*/)
+            if (usedWays.Contains(way.id) || way.tags.Count == 0 || CheckSkipTags(way.tags))
             {
                 offset++;
                 i--;
                 continue;
             }
+            usedWays.Add(way.id);
 
             Color wayColor = GetColor(way);
-            GameObject newWayObject = new GameObject($"Way {i} - {0}");
-            newWayObject.transform.SetParent(mapParent);
 
-            WayData wayData = newWayObject.AddComponent<WayData>();
-            wayData.data.Add($"ID = {way.id}");
-            foreach(KeyValuePair<string, string> tag in way.tags)
+            if (way.type is WayType.Water or WayType.Grass)
             {
-                wayData.data.Add($"{tag.Key} - {tag.Value}");
-            }
-
-            List<Vector3> positions = new List<Vector3>();
-            AddPositions(ref positions, ref usedWays, way);
-
-            SetupLineRenderer(newWayObject, positions, wayColor);
-            if (wayColor != Color.white)
-            {
+                GameObject newWayObject = SetupWayGameObject(way, i, index);
+                List<Vector3> positions = new List<Vector3>();
+                AddPositions(ref positions, way);
                 SetupMesh(newWayObject, positions, wayColor);
                 continue;
             }
-            if (way.tags.ContainsKey("building"))
+            if (way.type == WayType.Building)
             {
+                GameObject newWayObject = SetupWayGameObject(way, i, index);
+                List<Vector3> positions = new List<Vector3>();
+                AddPositions(ref positions, way);
                 SetupMesh(newWayObject, positions, wayColor, 5);
+                continue;
+            }
+            if (way.type == WayType.Other)
+            {
+                GameObject newWayObject = SetupWayGameObject(way, i, index);
+                List<Vector3> positions = new List<Vector3>();
+                AddPositions(ref positions, way);
+                SetupLineRenderer(newWayObject, positions, wayColor);
+                continue;
             }
         }
     }
 
+    public Color GetColor(Way way)
+    {
+        if (way.type == WayType.Water) return Color.blue;
+        if (way.type == WayType.Grass) return Color.green;
+        if (way.type == WayType.Building) return Color.gray;
+        return Color.white;
+    }
+
+    private GameObject SetupWayGameObject(Way way, int i, int index)
+    {
+        GameObject newWayObject = new GameObject($"Way {i} - {index} - {0}");
+        newWayObject.transform.SetParent(mapParent);
+
+        WayData wayData = newWayObject.AddComponent<WayData>();
+        wayData.data.Add($"ID = {way.id}");
+        wayData.type = way.type;
+        foreach (KeyValuePair<string, string> tag in way.tags)
+        {
+            wayData.data.Add($"{tag.Key} - {tag.Value}");
+        }
+        return newWayObject;
+    }
+
     private void SetupMesh(GameObject gameObject, List<Vector3> positions, Color color, float height = 0)
     {
-        //if (color == Color.white) return;
-        
         MeshFilter meshFilter = gameObject.AddComponent<MeshFilter>();
         meshFilter.sharedMesh = OSMMeshBuilder.Get(positions, height);
 
@@ -162,20 +221,8 @@ public class OSMReader : MonoBehaviour
         lineRenderer.endWidth = .1f;
     }
 
-    public Color GetColor(Way way)
+    private void AddPositions(ref List<Vector3> positions, Way way)
     {
-        if (way.tags.ContainsKey("natural"))
-        {
-            if (way.tags["natural"] == "water") return Color.blue;
-            return Color.green;
-        }
-        if (way.tags.ContainsValue("grass")) return Color.green;
-        return Color.white;
-    }
-
-    private void AddPositions(ref List<Vector3> positions, ref List<long> usedWays, Way way)
-    {
-        usedWays.Add(way.id);
         foreach (long childElement in way.nodeIndexes)
         {
             Node node = nodes[childElement];
@@ -185,16 +232,16 @@ public class OSMReader : MonoBehaviour
             newPosition *= 10000;
             positions.Add(newPosition);
         }
-        Node lastNode = nodes[way.nodeIndexes[way.nodeIndexes.Count - 1]];
-        if (lastNode.ways.Count > 0)
-        {
-            foreach(Way wayId in lastNode.ways)
-            {
-                if (usedWays.Contains(wayId.id)) continue;
-                //AddPositions(ref positions, ref usedWays, wayId);
-                //break;
-            }
-        }
+        //Node lastNode = nodes[way.nodeIndexes[way.nodeIndexes.Count - 1]];
+        //if (lastNode.ways.Count > 0)
+        //{
+        //    foreach(Way wayId in lastNode.ways)
+        //    {
+        //        if (usedWays.Contains(wayId.id)) continue;
+        //        //AddPositions(ref positions, ref usedWays, wayId);
+        //        //break;
+        //    }
+        //}
     }
 
     public void Checks()
