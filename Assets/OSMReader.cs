@@ -1,6 +1,10 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Xml.Linq;
+using UnityEditor.ProBuilder;
 using UnityEngine;
+using UnityEngine.ProBuilder;
+using UnityEngine.ProBuilder.MeshOperations;
 
 public class Node
 {
@@ -20,8 +24,10 @@ public class Way
 
 public class OSMReader : MonoBehaviour
 {
+    public TextAsset osmData;
     public int lineCount;
     public Material lineMaterial;
+    public Material meshMaterial;
     public Transform mapParent;
     public string dataPath;
     public int nodeCount;
@@ -32,7 +38,7 @@ public class OSMReader : MonoBehaviour
 
     public void Import()
     {
-        XDocument document = XDocument.Load(dataPath);
+        XDocument document = XDocument.Parse(osmData.text);
         PopulateNodes(document);
         PopulateWays(document);
     }
@@ -76,17 +82,17 @@ public class OSMReader : MonoBehaviour
         }
     }
 
-    private void DestroyChildern(Transform map)
+    public void DestroyChildern()
     {
-        while(map.childCount > 0)
+        for(int i = mapParent.childCount - 1; i >= 0; i--)
         {
-            DestroyImmediate(map.GetChild(0));
+            DestroyImmediate(mapParent.GetChild(i).gameObject);
         }
     }
 
     public void PopulateWays()
     {
-        DestroyChildern(mapParent);
+        DestroyChildern();
         List<long> usedWays = new List<long>();
         int offset = 0;
         Import();
@@ -95,12 +101,21 @@ public class OSMReader : MonoBehaviour
             int index = i + offset;
             if (index >= ways.Count) return;
             Way way = ways[index];
-            if (usedWays.Contains(way.id)/* || !way.tags.ContainsKey("aeroway")*/)
+            if (usedWays.Contains(way.id) || way.tags.Count == 0 || way.tags.ContainsKey("power") || way.tags.ContainsKey("route") || way.tags.ContainsKey("seamark:type")/* || !way.tags.ContainsKey("aeroway")*/)
             {
                 offset++;
                 i--;
                 continue;
             }
+            if (way.tags.ContainsKey("building"))
+            {
+                AddToMesh(way);
+                offset++;
+                i--;
+                continue;
+            }
+
+            Color wayColor = GetColor(way);
             GameObject newWayObject = new GameObject($"Way {i} - {/*way.tags["aeroway"]*/0}");
             newWayObject.transform.SetParent(mapParent);
 
@@ -111,13 +126,62 @@ public class OSMReader : MonoBehaviour
                 wayData.data.Add($"{tag.Key} - {tag.Value}");
             }
 
-            LineRenderer lineRenderer = newWayObject.AddComponent<LineRenderer>();
-            lineRenderer.material = lineMaterial;
             List<Vector3> positions = new List<Vector3>();
             AddPositions(ref positions, ref usedWays, way);
-            lineRenderer.positionCount = positions.Count;
-            lineRenderer.SetPositions(positions.ToArray());
+
+            SetupLineRenderer(newWayObject, positions, wayColor);
+            if (wayColor != Color.white)
+            {
+                SetupMesh(newWayObject, positions, wayColor);
+                continue;
+            }
         }
+    }
+
+    private void SetupMesh(GameObject gameObject, List<Vector3> positions, Color color)
+    {
+        if (color == Color.white) return;
+        
+        MeshFilter meshFilter = gameObject.AddComponent<MeshFilter>();
+        meshFilter.sharedMesh = OSMMeshBuilder.Get(positions);
+
+        MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>();
+        renderer.sharedMaterial = Instantiate(meshMaterial);
+        renderer.sharedMaterial.color = color;
+    }
+
+    private void SetupLineRenderer(GameObject gameObject, List<Vector3> positions, Color color)
+    {
+        LineRenderer lineRenderer = gameObject.AddComponent<LineRenderer>();
+        lineRenderer.material = lineMaterial;
+
+        lineRenderer.positionCount = positions.Count;
+        lineRenderer.SetPositions(positions.ToArray());
+
+        lineRenderer.startColor = color;
+        lineRenderer.endColor = color;
+
+        lineRenderer.startWidth = .1f;
+        lineRenderer.endWidth = .1f;
+    }
+
+    public void AddToMesh(Way way)
+    {
+        for(int i = 0; i < way.nodeIndexes.Count; i++)
+        {
+
+        }
+    }
+
+    public Color GetColor(Way way)
+    {
+        if (way.tags.ContainsKey("natural"))
+        {
+            if (way.tags["natural"] == "water") return Color.blue;
+            return Color.green;
+        }
+        if (way.tags.ContainsValue("grass")) return Color.green;
+        return Color.white;
     }
 
     private void AddPositions(ref List<Vector3> positions, ref List<long> usedWays, Way way)
@@ -128,6 +192,7 @@ public class OSMReader : MonoBehaviour
             Node node = nodes[childElement];
             Vector3 newPosition = new Vector3(node.lat, 0, node.lon);
             newPosition -= new Vector3(51.508f, 0, 0.070f);
+            newPosition.z *= -1;
             newPosition *= 10000;
             positions.Add(newPosition);
         }
@@ -162,5 +227,45 @@ public class OSMReader : MonoBehaviour
             }
         }
         Debug.Log($"Number of duplicates = {duplicatCount}");
+    }
+}
+
+public class OSMMeshBuilder
+{
+    public static Mesh Get(List<Vector3> positions)
+    {
+        //Polygon2D polygon = Polygon2D.Contour(ConvertToVector2Array(positions));
+
+        //Triangulation2D triangulation = new Triangulation2D(polygon, 22.5f);
+
+        //Mesh newMesh = triangulation.Build();
+
+        ProBuilderMesh mesh = ProBuilderMesh.Create();
+        mesh.CreateShapeFromPolygon(positions, 0, false);
+
+        mesh.ToMesh();
+        mesh.Refresh();
+
+        Mesh wayMesh = new Mesh();
+        wayMesh.SetVertices(mesh.GetVertices().Select(o => o.position).ToList());
+        List<int> indicies = new List<int>();
+        mesh.faces.ToList().ForEach(o => { indicies.AddRange(o.indexes.ToList()); });
+        wayMesh.SetIndices(indicies, MeshTopology.Triangles, 0);
+        wayMesh.RecalculateBounds();
+        wayMesh.RecalculateNormals();
+
+        GameObject.DestroyImmediate(mesh.gameObject);
+
+        return wayMesh;
+    }
+
+    private static Vector2[] ConvertToVector2Array(List<Vector3> vector3s)
+    {
+        List<Vector2> result = new List<Vector2>();
+        foreach (Vector3 vector3 in vector3s)
+        {
+            result.Add(new Vector2(vector3.x, vector3.z));
+        }
+        return result.ToArray();
     }
 }
