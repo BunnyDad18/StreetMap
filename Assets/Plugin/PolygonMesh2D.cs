@@ -9,6 +9,7 @@ using System.Collections.Generic;
 /// <summary>
 /// Builds a Mesh for a gameObject using the PolygonCollider2D's path</summary>
 public class PolygonMesh2D : MonoBehaviour {
+	public int indexPoints = 0;
 	protected PolygonCollider2D polygon;
 	protected MeshFilter meshFilter;
 
@@ -27,7 +28,8 @@ public class PolygonMesh2D : MonoBehaviour {
 	///(Re)builds the Mesh using the path of the PolygonCollider2D</summary>
 	public void OnColliderUpdate() {
 		Vector2[] path = polygon.GetPath(pathIndex);
-		Mesh msh = new Mesh();
+        indexPoints = path.Length;
+        Mesh msh = new Mesh();
 
 		msh.vertices = path.Select(v => new Vector3(v.x, v.y, zPosition)).ToArray();
 		msh.triangles = new Triangulator(path).Triangulate();
