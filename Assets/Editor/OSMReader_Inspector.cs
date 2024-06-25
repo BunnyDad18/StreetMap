@@ -72,6 +72,18 @@ public class OSMReader_Inspector : Editor
         skipKeys.bindingPath = "skipKeys";
         inspector.Add(skipKeys);
 
+        PropertyField excludeIDs = new PropertyField();
+        excludeIDs.bindingPath = "excludeIDs";
+        inspector.Add(excludeIDs);
+
+        PropertyField exclusiveIDs = new PropertyField();
+        exclusiveIDs.bindingPath = "exclusiveIDs";
+        inspector.Add(exclusiveIDs);
+
+        PropertyField limitIDs = new PropertyField();
+        limitIDs.bindingPath = "limitIDs";
+        inspector.Add(limitIDs);
+
         return inspector;
     }
 

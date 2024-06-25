@@ -48,6 +48,11 @@ public class OSMReader : MonoBehaviour
     public int nodeCount;
     public int wayCount;
 
+    public bool limitIDs = false;
+
+    public List<long> excludeIDs;
+    public List<long> exclusiveIDs;
+
     public List<string> skipKeys = new List<string>();
 
     public Dictionary<long, Node> nodes = new Dictionary<long, Node>();
@@ -129,7 +134,14 @@ public class OSMReader : MonoBehaviour
         return false;
     }
 
-    
+    private bool SkipWay(Way way)
+    {
+        if (way.tags.Count == 0) return true;
+        if (CheckSkipTags(way.tags)) return true;
+        if (limitIDs && exclusiveIDs.Contains(way.id)) return false;
+        if (limitIDs && excludeIDs.Contains(way.id)) return true;
+        return false;
+    }
 
     public void PopulateWays()
     {
@@ -138,14 +150,12 @@ public class OSMReader : MonoBehaviour
         int offset = 0;
         if (ways.Count == 0) Import();
 
-        //Dictionary<long, List<SerialiseVector3>> exportPosition = new Dictionary<long, List<SerialiseVector3>>();
-
         for(int i = 0; i < lineCount; i++)
         {
             int index = i + offset;
             if (index >= ways.Count) break;
             Way way = ways[index];
-            if (usedWays.Contains(way.id) || way.tags.Count == 0 || CheckSkipTags(way.tags) || !(way.id == 324023519 || way.id == 837647365 || way.id == 837647364 || way.id == 1023485270 || way.id == 1023485254))
+            if (usedWays.Contains(way.id) || SkipWay(way))
             {
                 offset++;
                 i--;
@@ -162,20 +172,13 @@ public class OSMReader : MonoBehaviour
                 AddPositions(ref positions, way);
                 positions = OSMMeshBuilder.InvertAddOne(positions);
                 SetupMesh(newWayObject, positions, wayColor, way.type, .1f);
-                //exportPosition.Add(way.id, ConvertVector3ListToFloat3(positions));
-                //SetupLineRenderer(newWayObject, positions, wayColor);
-                foreach(Vector3 position in positions)
-                {
-                    GameObject ball = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    ball.transform.position = position;
-                    ball.transform.SetParent(newWayObject.transform);
-                }
             }
             if (way.type == WayType.Building)
             {
                 GameObject newWayObject = SetupWayGameObject(way, i, index);
                 List<Vector3> positions = new List<Vector3>();
                 AddPositions(ref positions, way);
+                positions = OSMMeshBuilder.InvertAddOne(positions);
                 SetupMesh(newWayObject, positions, wayColor, way.type, 5);
             }
             if (way.type is WayType.Other or WayType.Taxiway)
@@ -187,21 +190,6 @@ public class OSMReader : MonoBehaviour
             }
         }
         mapParent.name = $"Main - {mapParent.childCount}";
-        //string json = JsonConvert.SerializeObject(exportPosition, Formatting.Indented);
-        //string path = Path.Combine(Application.streamingAssetsPath, "Positions.json");
-        //Debug.Log(path);
-        //Debug.Log(json);
-        //File.WriteAllText(path, json);
-    }
-
-    private List<SerialiseVector3> ConvertVector3ListToFloat3(List<Vector3> positions)
-    {
-        List<SerialiseVector3> result = new List<SerialiseVector3>();
-        foreach (Vector3 position in positions)
-        {
-            result.Add(new SerialiseVector3() { x = position.x, y = position.y, z = position.z});
-        }
-        return result;
     }
 
     public struct SerialiseVector3
