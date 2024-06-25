@@ -1,10 +1,15 @@
+using Newtonsoft.Json;
+using Palmmedia.ReportGenerator.Core.Common;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using Unity.Mathematics;
 using UnityEditor.ProBuilder;
 using UnityEngine;
 using UnityEngine.ProBuilder;
 using UnityEngine.ProBuilder.MeshOperations;
+using UnityEngine.UIElements;
 
 public enum WayType
 {
@@ -133,12 +138,14 @@ public class OSMReader : MonoBehaviour
         int offset = 0;
         if (ways.Count == 0) Import();
 
+        //Dictionary<long, List<SerialiseVector3>> exportPosition = new Dictionary<long, List<SerialiseVector3>>();
+
         for(int i = 0; i < lineCount; i++)
         {
             int index = i + offset;
-            if (index >= ways.Count) return;
+            if (index >= ways.Count) break;
             Way way = ways[index];
-            if (usedWays.Contains(way.id) || way.tags.Count == 0 || CheckSkipTags(way.tags)/* || way.id != 324023519*/)
+            if (usedWays.Contains(way.id) || way.tags.Count == 0 || CheckSkipTags(way.tags) || !(way.id == 324023519 || way.id == 837647365 || way.id == 837647364 || way.id == 1023485270 || way.id == 1023485254))
             {
                 offset++;
                 i--;
@@ -154,8 +161,14 @@ public class OSMReader : MonoBehaviour
                 List<Vector3> positions = new List<Vector3>();
                 AddPositions(ref positions, way);
                 SetupMesh(newWayObject, positions, wayColor, way.type, .1f);
-                SetupLineRenderer(newWayObject, positions, wayColor);
-                continue;
+                //exportPosition.Add(way.id, ConvertVector3ListToFloat3(positions));
+                //SetupLineRenderer(newWayObject, positions, wayColor);
+                foreach(Vector3 position in positions)
+                {
+                    GameObject ball = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    ball.transform.position = position;
+                    ball.transform.SetParent(newWayObject.transform);
+                }
             }
             if (way.type == WayType.Building)
             {
@@ -163,7 +176,6 @@ public class OSMReader : MonoBehaviour
                 List<Vector3> positions = new List<Vector3>();
                 AddPositions(ref positions, way);
                 SetupMesh(newWayObject, positions, wayColor, way.type, 5);
-                continue;
             }
             if (way.type is WayType.Other or WayType.Taxiway)
             {
@@ -171,10 +183,29 @@ public class OSMReader : MonoBehaviour
                 List<Vector3> positions = new List<Vector3>();
                 AddPositions(ref positions, way);
                 SetupLineRenderer(newWayObject, positions, wayColor);
-                continue;
             }
         }
         mapParent.name = $"Main - {mapParent.childCount}";
+        //string json = JsonConvert.SerializeObject(exportPosition, Formatting.Indented);
+        //string path = Path.Combine(Application.streamingAssetsPath, "Positions.json");
+        //Debug.Log(path);
+        //Debug.Log(json);
+        //File.WriteAllText(path, json);
+    }
+
+    private List<SerialiseVector3> ConvertVector3ListToFloat3(List<Vector3> positions)
+    {
+        List<SerialiseVector3> result = new List<SerialiseVector3>();
+        foreach (Vector3 position in positions)
+        {
+            result.Add(new SerialiseVector3() { x = position.x, y = position.y, z = position.z});
+        }
+        return result;
+    }
+
+    public struct SerialiseVector3
+    {
+        public float x, y, z;
     }
 
     public Color GetColor(Way way)
@@ -266,46 +297,58 @@ public class OSMMeshBuilder
     private const float tolorance = 2f;
     public static Mesh Get(List<Vector3> positions, float height, WayType type)
     {
-        ProBuilderMesh mesh = ProBuilderMesh.Create();
-        var result = mesh.CreateShapeFromPolygon(positions, height, false);
+        //ProBuilderMesh mesh = ProBuilderMesh.Create();
+        //var result = mesh.CreateShapeFromPolygon(positions, height, false);
+        //Debug.Log($"Result = {result.status} - {result.notification}");
 
-        if(result.status == ActionResult.Status.Failure)
-        {
-            float lowestValue = 10;
-            for (int i = 0; i < positions.Count; i++)
-            {
-                if (i == 0) continue;
-                float distance = Vector3.Distance(positions[i], positions[i - 1]);
-                if (distance < tolorance)
-                {
-                    positions.RemoveAt(i);
-                    i--;
-                }
-                else
-                {
-                    lowestValue = distance < lowestValue ? distance : lowestValue;
-                }
-            }
-        }
-        result = mesh.CreateShapeFromPolygon(positions, height, false);
-        if(result.status == ActionResult.Status.Failure)
-        {
-            Debug.Log($"Mesh Failed to build for type {type}");
-        }
+        //if (result.status == ActionResult.Status.Failure)
+        //{
+        //    float lowestValue = 10;
+        //    for (int i = 0; i < positions.Count; i++)
+        //    {
+        //        if (i == 0) continue;
+        //        float distance = Vector3.Distance(positions[i], positions[i - 1]);
+        //        if (distance < tolorance)
+        //        {
+        //            positions.RemoveAt(i);
+        //            i--;
+        //        }
+        //        else
+        //        {
+        //            lowestValue = distance < lowestValue ? distance : lowestValue;
+        //        }
+        //    }
+        //}
+        //result = mesh.CreateShapeFromPolygon(positions, height, false);
+        //if (result.status == ActionResult.Status.Failure)
+        //{
+        //    Debug.Log($"Mesh Failed to build for type {type}");
+        //}
 
-        mesh.ToMesh();
-        mesh.Refresh();
+        //mesh.ToMesh();
+        //mesh.Refresh();
 
         Mesh wayMesh = new Mesh();
-        wayMesh.SetVertices(mesh.GetVertices().Select(o => o.position).ToList());
-        List<int> indicies = new List<int>();
-        mesh.faces.ToList().ForEach(o => { indicies.AddRange(o.indexes.ToList()); });
-        wayMesh.SetIndices(indicies, MeshTopology.Triangles, 0);
+        //wayMesh.SetVertices(mesh.GetVertices().Select(o => o.position).ToList());
+        //List<int> indicies = new List<int>();
+        //mesh.faces.ToList().ForEach(o => { indicies.AddRange(o.indexes.ToList()); });
+        wayMesh.SetVertices(positions);
+        wayMesh.SetIndices(new Triangulator(ConvertToVecto2(positions)).Triangulate(), MeshTopology.Triangles, 0);
         wayMesh.RecalculateBounds();
         wayMesh.RecalculateNormals();
-
-        GameObject.DestroyImmediate(mesh.gameObject);
+        //GameObject.DestroyImmediate(mesh.gameObject);
 
         return wayMesh;
+    }
+
+    private static Vector2[] ConvertToVecto2(List<Vector3> vector3s)
+    {
+        Vector2[] vector2s = new Vector2[vector3s.Count + 1];
+        for(int i = 0; i < vector3s.Count; i++)
+        {
+            vector2s[i] = new Vector2(vector3s[i].x, vector3s[i].z);
+        }
+        vector2s[vector2s.Length - 1] = new Vector2(vector3s[0].x, vector3s[0].z);
+        return vector2s;
     }
 }
