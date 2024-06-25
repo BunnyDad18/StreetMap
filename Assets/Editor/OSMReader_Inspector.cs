@@ -64,13 +64,13 @@ public class OSMReader_Inspector : Editor
 
         inspector.Add(PopulateButton);
 
-        Button ChecksButton = new Button() { text = "Checks" };
-        ChecksButton.clicked += reader.Checks;
-        inspector.Add(ChecksButton);
-
         PropertyField skipKeys = new PropertyField();
         skipKeys.bindingPath = "skipKeys";
         inspector.Add(skipKeys);
+
+        PropertyField keyValueSkip = new PropertyField();
+        keyValueSkip.bindingPath = "keyValueSkip";
+        inspector.Add(keyValueSkip);
 
         PropertyField excludeIDs = new PropertyField();
         excludeIDs.bindingPath = "excludeIDs";

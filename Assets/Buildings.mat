@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Ground
-  m_Shader: {fileID: -6465566751694194690, guid: bdac86e0676af1548badf98ff3ddb176, type: 3}
+  m_Name: Buildings
+  m_Shader: {fileID: -6465566751694194690, guid: 4ca1736dc0f9ad74bbab81ccbd04cdd4, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
