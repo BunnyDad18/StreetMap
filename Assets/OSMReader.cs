@@ -2,18 +2,6 @@ using System.Collections.Generic;
 using System.Xml.Linq;
 using UnityEngine;
 
-public enum WayType
-{
-    Other,
-    Water,
-    Grass,
-    Wood,
-    Building,
-    Brownfield,
-    Industrial,
-    Taxiway
-}
-
 public class OSMReader : MonoBehaviour
 {
     public TextAsset osmData;
@@ -135,14 +123,12 @@ public class OSMReader : MonoBehaviour
             int index = i + offset;
             if (index >= ways.Count) break;
             Way way = ways[index];
-            if (SkipWay(way))
+            if (SkipWay(way) || !Render.RenderWay(way, mapParent))
             {
                 offset++;
                 i--;
                 continue;
             }
-
-            Render.RenderWay(way, mapParent);
         }
         mapParent.name = $"Main - {mapParent.childCount}";
     }

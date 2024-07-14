@@ -9,17 +9,22 @@ public class WayRender : MonoBehaviour
     private OSMReader reader;
     private OSMReader Reader { get { if(reader == null) reader = GetComponent<OSMReader>(); return reader; } }
 
-    public void RenderWay(Way way, Transform parent)
+    public bool RenderWay(Way way, Transform parent)
     {
         Color wayColor = GetColor(way);
 
-        if (way.type is WayType.Water or WayType.Grass or WayType.Wood or WayType.Brownfield or WayType.Industrial)
+        if (way.type is WayType.Water or WayType.Grass or WayType.Wood or WayType.Wetland or WayType.Aerodrome or WayType.Runway)
         {
             GameObject newWayObject = SetupWayGameObject(way, parent);
             List<Vector3> positions = new List<Vector3>();
             AddPositions(ref positions, way);
             positions.RemoveAt(0);
-            SetupMesh(newWayObject, positions, wayColor, way.type, 0);
+            SetupMesh(newWayObject, positions, wayColor, 0);
+            if(way.type == WayType.Aerodrome)
+            {
+                newWayObject.transform.position += Vector3.down * 0.1f;
+            }
+            return true;
         }
         if (way.type == WayType.Building)
         {
@@ -29,7 +34,8 @@ public class WayRender : MonoBehaviour
             //SetupLineRenderer(newWayObject, positions, wayColor);
             positions.RemoveAt(0);
 
-            SetupMesh(newWayObject, positions, wayColor, way.type, 5);
+            SetupMesh(newWayObject, positions, wayColor, way.height);
+            return true;
         }
         if (way.type is WayType.Other or WayType.Taxiway)
         {
@@ -37,7 +43,9 @@ public class WayRender : MonoBehaviour
             List<Vector3> positions = new List<Vector3>();
             AddPositions(ref positions, way);
             SetupLineRenderer(newWayObject, positions, wayColor);
+            return true;
         }
+        return false;
     }
 
     private Color GetColor(Way way)
@@ -48,6 +56,9 @@ public class WayRender : MonoBehaviour
         if (way.type == WayType.Taxiway) return Color.yellow;
         if (way.type == WayType.Brownfield) return new Color(166f / 255f, 123f / 255f, 91f / 255f);
         if (way.type == WayType.Industrial) return new Color(119f / 255f, 176f / 255f, 170f / 255f);
+        if (way.type == WayType.Wetland) return new Color(166f / 255f, 123f / 255f, 91f / 255f);
+        if (way.type == WayType.Aerodrome) return new Color(.8f, .8f, .8f);
+        if (way.type == WayType.Runway) return new Color(.3f, .3f, .3f);
         return Color.white;
     }
 
@@ -94,7 +105,7 @@ public class WayRender : MonoBehaviour
         lineRenderer.endWidth = .1f;
     }
 
-    private void SetupMesh(GameObject gameObject, List<Vector3> positions, Color color, WayType type, float height = 0)
+    private void SetupMesh(GameObject gameObject, List<Vector3> positions, Color color, float height = 0)
     {
         MeshFilter meshFilter = gameObject.AddComponent<MeshFilter>();
         meshFilter.sharedMesh = OSMMeshBuilder.Get(positions, height);
